@@ -14,7 +14,6 @@ public class task02 {
                 if (n[i]<0) throw new ArithmeticException();
                 sqrt = Math.sqrt(n[i]);
                 System.out.println(sqrt);
-
                 if (Math.floor(sqrt) == sqrt) System.out.println(n[i]);
             } catch (ArithmeticException e) {
                 System.out.println("value is negative");
