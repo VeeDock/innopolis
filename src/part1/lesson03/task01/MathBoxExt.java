@@ -12,8 +12,8 @@ import java.util.stream.Collectors;
  *
  * @author VDV
  */
-public class MathBoxExt {
-    private Set<BigDecimal> nums = new HashSet<>();
+public class MathBoxExt extends ObjectBoxExt {
+
     private final Set<Class> classes;
 
     {
@@ -25,22 +25,34 @@ public class MathBoxExt {
     }
 
     public MathBoxExt(Number[] nums) throws UnsupportedNumberTypeException {
-        for (int i = 0; i < nums.length; i++) {
-            if (!classes.contains(nums[i].getClass())) throw new UnsupportedNumberTypeException();
-            this.nums.add(BigDecimal.valueOf(nums[i].doubleValue()));
+        objects = new HashSet<BigDecimal>();
+        for (Number num : nums) {
+            if (!classes.contains(num.getClass())) throw new UnsupportedNumberTypeException();
+            addObject(num);
         }
+
     }//...constructor
+
+    /**
+     * Вспомогательный метод, преобразующий Object в BigDecimal
+     * @param v
+     * @return
+     */
+    BigDecimal val(Object v){
+        return new BigDecimal(((Number)v).doubleValue());
+    }
 
     /**
      * Метод возвращает сумму всех элементов коллекции. результат возврщает в заданном формате Number.
      *
-     * @param clazz определяет возвращаемый тип
      * @return
      */
-    public <T extends Number> T summator(Class<T> clazz) {
-        Optional<BigDecimal> n = nums.stream().reduce((a, b) -> a.add(b));
+    public <T extends Number> T summator() {
+        Optional n = objects.stream().reduce((a, b) -> val(a).add(val(b)));
         return (T) n.orElse(BigDecimal.valueOf(0));
     }
+
+
 
 
     /**
@@ -51,7 +63,7 @@ public class MathBoxExt {
      */
     public <T extends Number> void splitter(T divider) {
         BigDecimal d = BigDecimal.valueOf(divider.doubleValue());
-        nums = nums.stream().map(n -> n.divide(d)).collect(Collectors.toSet());
+        objects = (Set) objects.stream().map(n -> (val(n)).divide(d)).collect(Collectors.toSet());
     }//...splitter
 
     /**
@@ -61,40 +73,29 @@ public class MathBoxExt {
      * @return результат удаления
      */
     public boolean remove(Integer num) {
-        BigDecimal n = BigDecimal.valueOf((double) num);
-        boolean removed = false;
-        Iterator<BigDecimal> iter = nums.iterator();
-        while (iter.hasNext()) {
-            BigDecimal nextNum = iter.next();
-            if (nextNum.equals(n)) {
-                nums.remove(nextNum);
-                removed = true;
-                break;
-            }
-        }
-        return removed;
+        return deleteObject(num);
     }
 
     public boolean contains(BigDecimal n) {
-        for (BigDecimal num :nums) if (n.equals(num)) return true;
+        for (Object num :objects) if (n.equals(num)) return true;
         return false;
     }
 
     @Override
     public String toString() {
-        return nums.toString();
+        return dump();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(nums);
+        return Objects.hash(objects);
     }
 
     @Override
     public boolean equals(Object obj) {
         if (obj == null || getClass() != obj.getClass()) return false;
         MathBoxExt nums2 = (MathBoxExt) obj;
-        for (BigDecimal n : nums) if (!nums2.contains(n)) return false;
+        for (Object n : objects) if (!nums2.contains((BigDecimal) n)) return false;
         return super.equals(obj);
     }
 
