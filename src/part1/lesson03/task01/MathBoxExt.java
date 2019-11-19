@@ -2,6 +2,7 @@
 
 package part1.lesson03.task01;
 
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
@@ -9,61 +10,43 @@ import java.util.stream.Collectors;
 
 /**
  * Объект, хранящий множество чисел Number. По умолчанию все числа приводятся к формату BigDecimal, как предположительный наивысший возможный вариант числа, содержащегося в массиве Number
- *
- * @author VDV
  */
-public class MathBoxExt extends ObjectBoxExt {
+public class MathBoxExt<T extends Number> extends ObjectBoxExt {
 
-    private final Set<Class> classes;
 
-    {
-        /**
-         * набор возможных классов, с которыми оперирует объект
-         * возьмем в обработку только 8 основных типов данных, наследуемых от Number
-         */
-        classes = new HashSet<>(Arrays.asList(Long.class, Byte.class, Integer.class, Short.class, Double.class, Float.class, BigInteger.class, BigDecimal.class));
-    }
-
-    public MathBoxExt(Number[] nums) throws UnsupportedNumberTypeException {
-        objects = new HashSet<BigDecimal>();
-        for (Number num : nums) {
-            if (!classes.contains(num.getClass())) throw new UnsupportedNumberTypeException();
-            addObject(num);
-        }
-
+    /**
+     * @param nums массив типов, наследуемых от Number. Предположим, что каких-то нестандартных методов передаваться не будет.
+     */
+    public MathBoxExt(T[] nums) {
+        super(nums);
     }//...constructor
 
-    /**
-     * Вспомогательный метод, преобразующий Object в BigDecimal
-     * @param v
-     * @return
-     */
-    BigDecimal val(Object v){
-        return new BigDecimal(((Number)v).doubleValue());
-    }
 
     /**
-     * Метод возвращает сумму всех элементов коллекции. результат возврщает в заданном формате Number.
      *
-     * @return
+     * @return сумму всех элементов коллекции. результат возврщает в заданном формате Number.
      */
-    public <T extends Number> T summator() {
-        Optional n = objects.stream().reduce((a, b) -> val(a).add(val(b)));
-        return (T) n.orElse(BigDecimal.valueOf(0));
-    }
-
-
+    public BigDecimal summator() {
+        BigDecimal sum = new BigDecimal(0);
+        for (Object n : objects) {
+            sum = sum.add(BigDecimal.valueOf(((Number)n).doubleValue()));
+        }
+        return sum;
+    }//...summator
 
 
     /**
      * Выполняет поочередное деление всех хранящихся элементов в объекте на делитель
      *
      * @param divider делитель в любом формате Number.
-     * @param <T>     тип делителя
      */
-    public <T extends Number> void splitter(T divider) {
+    public void splitter(T divider) {
         BigDecimal d = BigDecimal.valueOf(divider.doubleValue());
-        objects = (Set) objects.stream().map(n -> (val(n)).divide(d)).collect(Collectors.toSet());
+        Set<T> modifiedNums = new HashSet<>();
+        for (Object num :objects) {
+            modifiedNums.add((T) BigDecimal.valueOf(((Number)num).doubleValue()).divide(d));
+        }
+        objects = modifiedNums;
     }//...splitter
 
     /**
@@ -72,13 +55,23 @@ public class MathBoxExt extends ObjectBoxExt {
      * @param num значение удаляемого элемента
      * @return результат удаления
      */
-    public boolean remove(Integer num) {
+    public boolean remove(T num) {
         return deleteObject(num);
     }
 
     public boolean contains(BigDecimal n) {
-        for (Object num :objects) if (n.equals(num)) return true;
+        for (Object num : objects) if (n.equals(num)) return true;
         return false;
+    }
+
+    /**
+     * Метод для добавления элементов в набор. 
+     * @param object Добавляемый объект
+     */
+    @Override
+    public void addObject(Object object) {
+        if (!(object instanceof Number)) throw new ClassCastException("Can't cast class <Object> to <Number>");
+        super.addObject(object);
     }
 
     @Override

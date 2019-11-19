@@ -2,6 +2,7 @@
 
 package part1.lesson03.task01;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -9,14 +10,17 @@ import java.util.Set;
 /**
  * Класс для хранения коллекции Object.
  */
-class ObjectBoxExt {
-    public Set objects = null;
+class ObjectBoxExt<T> {
+    public Set<T> objects = new HashSet<>();
 
-    ObjectBoxExt() {
-        objects = new HashSet();
+
+    public ObjectBoxExt(T[] objects){
+        for (T t : objects) {
+            addObject(t);
+        }
     }
 
-    void addObject(Object object){
+    public void addObject(T object){
         objects.add(object);
     }
 
@@ -25,7 +29,7 @@ class ObjectBoxExt {
      * @param obj объект, предназначенный для удаления.
      * @return результат удаления из набора
      */
-    boolean deleteObject(Object obj){
+    public boolean deleteObject(Object obj){
         for (Object o :objects) {
             if (obj.equals(o)) {
                 objects.remove(o);
@@ -36,8 +40,7 @@ class ObjectBoxExt {
     }
 
     /**
-     * Возвращает набор объектов в виде строки.
-     * @return
+     * @return Возвращает набор объектов в виде строки.
      */
     public String dump(){
         if (objects == null) return "[]";

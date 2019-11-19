@@ -1,0 +1,5 @@
+/out/production/innopolis/META-INF/innopolis.kotlin_module
+/workspace.xml
+*.xml
+*.idea
+*.iml
