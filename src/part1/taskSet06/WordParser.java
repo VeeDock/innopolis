@@ -3,10 +3,13 @@
 package part1.taskSet06;
 
 import java.io.*;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 
@@ -20,19 +23,25 @@ public class WordParser {
 
 
     /**
-     * Инициализация файла, из которого будем считывать все слова, путем ввода имени файла с консоли.
-     *
-     * @return WordParser
+     * Конструктор - инициализатор файла, из которого будем считывать все слова, путем ввода имени файла с консоли.
      */
-    public WordParser init() {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));) {
+    public WordParser() {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
             this.file = new File(reader.readLine());
             resultFile = new File(file + "_parsed");
         } catch (IOException e) {
             System.out.println("read file error " + e.getMessage());
 
         }
-        return this;
+    }
+
+    /**
+     * Конструктор - инициализатор файла, из которого будем считывать все слова, путем явного указания пути к файлу.
+     *
+     * @param file - путь к файлу, с которого будем считывать слова
+     */
+    public WordParser(String file) {
+        this.file = new File(file);
     }
 
     /**
@@ -49,10 +58,27 @@ public class WordParser {
         }
     }
 
+    /**
+     * Метод сохранения списка слов {@link WordParser#wordSet} в файл
+     *
+     * @param resultFile - файл для записи списка слов.
+     * @throws IOException
+     */
     private void save(File resultFile) throws IOException {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(resultFile))) {
             writer.write(wordSet.stream().collect(Collectors.joining(System.lineSeparator())));
         }
+    }
+
+    /**
+     * Получение массива слов не длиннее указанного размера
+     * (метод используется во второй части задания)
+     *
+     * @param maxLength - максимально допустимая длина слова в массиве
+     * @return возвращает массив слов, отфильтрованный по заданной длине
+     */
+    public List<String> getWords(int maxLength) {
+        return  wordSet.stream().filter(w->w.length()<=maxLength).collect(Collectors.toList());
     }
 
     /**
