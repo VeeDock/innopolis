@@ -40,11 +40,15 @@ public class FactorialCalculator {
         ExecutorService service = Executors.newCachedThreadPool();
         List<BigInteger> results = new ArrayList<>();
 
+        //подготовка потоков вычислений
         for (Integer num : numbers) {
-            if (factorials.containsKey(num)) continue;
+            if (factorials.containsKey(num)) {
+                continue;
+            }
             factorials.put(num, service.submit(new OneFactorialCalculator(num)));
         }
 
+        //запуск потоков вычислений и сбор результатов
         for (Integer num : numbers) {
             try {
                 results.add(factorials.get(num).get());
