@@ -1,8 +1,5 @@
 package part1.task10.multisockets.serverSide;
 
-import jdk.swing.interop.SwingInterOpUtils;
-import org.w3c.dom.ls.LSOutput;
-
 import java.io.IOException;
 import java.net.*;
 import java.util.LinkedList;
@@ -26,7 +23,7 @@ public class ChatServer {
         try (ServerSocket server = new ServerSocket(port)) {
             System.out.println("Chat server started on port " + port);
             while (!server.isClosed()) { //сервер находится в постоянном ожидании новых подключений. каждое новое подключение работает в параллельном потоке.
-                try{
+                try {
                     Socket clientSocket = server.accept();
                     connections.add(new ClientConnection(clientSocket, this));
                 } catch (IOException e) {

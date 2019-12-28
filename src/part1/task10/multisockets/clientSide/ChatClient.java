@@ -45,7 +45,9 @@ public class ChatClient {
     private Runnable serverListener;
 
 
-    {
+    /**
+     * Инициализируем Runnable объекты через лямбды
+     */ {
         messageSender = () -> {
             try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
                  BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
@@ -80,10 +82,9 @@ public class ChatClient {
                 System.out.println(e.getMessage());
             }
         };
-
     }
 
-    private void startListenBroadcast(){
+    private void startListenBroadcast() {
         String message;
         try (MulticastSocket multiSocket = new MulticastSocket(MULTICAST_PORT)) {
             multiSocket.joinGroup(InetAddress.getByName(MULTICAST_ADDRESS));
@@ -115,11 +116,10 @@ public class ChatClient {
     }
 
 
-
     private void startListeners() {
         new Thread(serverListener).start();
         new Thread(messageSender).start();
-        new Thread(this::startListenBroadcast).start(); //для теста передал метод по ссылке.
+        new Thread(this::startListenBroadcast).start(); //для разнообразия передал метод по ссылке.
     }
 
     public ChatClient(int port, String name) {

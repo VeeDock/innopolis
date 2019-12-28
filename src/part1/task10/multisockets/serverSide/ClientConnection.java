@@ -53,7 +53,7 @@ public class ClientConnection extends Thread {
      * @return возвращает ClientConnection, соответствующее этому клиенту.
      */
     public ClientConnection getConnection(String name) {
-        return server.getConnections().stream().filter(connection->connection.name.equals(name)).findFirst().orElse(null);
+        return server.getConnections().stream().filter(connection -> connection.name.equals(name)).findFirst().orElse(null);
     }
 
     /**
@@ -83,7 +83,7 @@ public class ClientConnection extends Thread {
         } catch (IOException e) {
             System.out.println("ERROR SENDING PRIVATE MESSAGE: " + e.getMessage());
         }
-    }//...sendMessage
+    }
 
 
     @Override
