@@ -56,6 +56,7 @@ public class ChatClient {
                 while (isAlive) {
                     String message;
                     message = reader.readLine();
+                    if (message.equals("")) continue;
                     if (message.equals("/quit")) {
                         out.write("Я ухожу! Всем пока!\n");
                         out.flush();
