@@ -12,35 +12,24 @@ import java.util.regex.Pattern;
 public class ClientConnection extends Thread {
 
     /**
-     * Получение ClientConnection по имени клиента
-     * @param name имя клиента
-     * @return возвращает ClientConnection, соответствующее этому клиенту.
-     */
-    public ClientConnection getConnection(String name){
-        for (int i = 0; i < server.connections.size(); i++) {
-            ClientConnection connection = server.connections.get(i);
-            if (connection.name.equals(name)) return connection;
-        }
-        return null;
-    }
-
-    /**
      * Поле сокета для общения с клинетом
      */
     private Socket socket;
 
-    /**
-     * Поле, хранящее объект чат-сервера
-     */
     private ChatServer server;
 
-    private BufferedReader in;
     private BufferedWriter out;
 
-    /**
-     * Имя клиента.
-     */
     private String name;
+
+    private final String PRIVATE_SEPARATOR = ">>";
+
+    private final char HELLO_INIT = 11;
+
+    /**
+     * Паттерн для сообщения, определяющий, что сообщение отправляется лично.
+     */
+    private final Pattern privatePattern = Pattern.compile("^>>\\w+>");
 
 
     /**
@@ -48,16 +37,24 @@ public class ClientConnection extends Thread {
      *
      * @param connection сокет текущего подключения клиента
      * @param server     объект чат-сервера
-     * @throws IOException
      */
     public ClientConnection(Socket connection, ChatServer server) throws IOException {
         this.server = server;
         socket = connection;
-        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
         start();
     }
 
+    /**
+     * Получение ClientConnection по имени клиента
+     * Используем стрим для получения нужного ClientConnection
+     *
+     * @param name имя клиента
+     * @return возвращает ClientConnection, соответствующее этому клиенту.
+     */
+    public ClientConnection getConnection(String name) {
+        return server.getConnections().stream().filter(connection->connection.name.equals(name)).findFirst().orElse(null);
+    }
 
     /**
      * Вывод сообщения в консоль и отправка через broadcast
@@ -65,14 +62,13 @@ public class ClientConnection extends Thread {
      * @param message текст сообщения
      */
     private void broadcastMessage(String message) {
-        if (name == null){ //если клиент не представился, то от него не будем отправлять сообщения другим юзерам
+        if (name == null) {
             sendMessage("Идентификация не получена. Сообщение не будет доставлено.", this);
             return;
         }
-        System.out.println("Message from <" + name + ">: " + message);
+        System.out.println(String.format("Message from <%s>: %s", name, message));
         server.sendBroadcast(message, this.name);
     }//...printMessage
-
 
 
     /**
@@ -84,46 +80,38 @@ public class ClientConnection extends Thread {
         try {
             client.out.write(message + "\n");
             client.out.flush();
-        } catch (IOException ignored) {}
+        } catch (IOException e) {
+            System.out.println("ERROR SENDING PRIVATE MESSAGE: " + e.getMessage());
+        }
     }//...sendMessage
-
 
 
     @Override
     public void run() {
-        try {
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
             String message;
-            /*
-            подключение к клиенту работает в параллельном потоке покуда программа чат-сервера не будет закрыта
-            каждое сообщение, отправляемое этим клиентом, отправляется всем клиентам, подключенным к серверу.
-             */
             while (true) {
                 message = in.readLine();
                 if (message == null) {
-                    broadcastMessage("Bye bye!");
                     socket.close();
-                    server.connections.remove(this);
+                    server.getConnections().remove(this);
                     break;
                 }
-                Matcher privMesMatcher = Pattern.compile("^>>\\w+>").matcher(message); //определение, что сообщение отправляется лично
-                if (message.getBytes()[0] == 11) { //сообщение-приветствие если начинается с char == 11. клиент отправляет свое имя
+                Matcher privateMessageSender = privatePattern.matcher(message);
+                if (message.getBytes()[0] == HELLO_INIT) { //сообщение-приветствие если начинается с char == 11. клиент отправляет свое имя
                     name = message.substring(1);
                     broadcastMessage("Connected!");
-                }
-                else if (privMesMatcher.find()){ //когда отправляется личное сообщение.
-
-                    String receiverName = message.substring(privMesMatcher.start(), privMesMatcher.end()).replaceAll(">","");
-                    message = message.substring(privMesMatcher.end());
+                } else if (privateMessageSender.find()) { //когда отправляется личное сообщение.
+                    String receiverName = message.substring(privateMessageSender.start(), privateMessageSender.end()).replaceAll(">", "");
+                    message = message.substring(privateMessageSender.end());
                     ClientConnection receiver = getConnection(receiverName);
-                    if (receiver != null){
-                        System.out.println("Message from <" + name + "> to <" + receiverName + ">: "  + message);
-                        sendMessage(name + ">> " + message, receiver);
+                    if (receiver != null) {
+                        System.out.println(String.format("Message from <%s> to <%s>: %s", name, receiverName, message));
+                        sendMessage(name + PRIVATE_SEPARATOR + message, receiver);
+                    } else {
+                        System.out.println(String.format("Невозможно отправить сообщение! Клиент с именем <%s> не подключен к серверу. ", receiverName));
                     }
-                    else {
-                        System.out.println("Невозможно отправить сообщение! Клиент с именем <" + receiverName + "> не подключен к серверу. ");
-                    }
-                }
-                else {
+                } else {
                     broadcastMessage(message);
                 }
 

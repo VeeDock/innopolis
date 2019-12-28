@@ -13,41 +13,21 @@ import java.net.Socket;
  * для выхода из чата набрать сообщение /quit
  */
 public class ChatClient {
-    private BufferedReader in;
-    private BufferedWriter out;
-    private BufferedReader reader;
-
     /**
      * Поле сокета для личного общения с сервером. (отправка на сервер и получение личных сообщений)
      */
     private Socket clientSocket;
 
-    /**
-     * Поле сокета для приема широковещательных сообщений.
-     */
-    private MulticastSocket multiSocket;
-
-    /**
-     * Адрес для приема широковещательных сообщений.
-     */
-    private InetAddress multiAddress;
+    private boolean isAlive;
 
     /**
      * Порт для прослушивания широковещательных сообщений
      */
-    private int multiPort = 8819;
+    private final int MULTICAST_PORT = 8819;
 
-    /**
-     * Поле для объекта-слушателя сообщений от сервера.
-     */
-    private Thread serverListener;
+    private final String MULTICAST_ADDRESS = "230.0.0.0";
 
-    private Thread broadcastListener;
-
-    /**
-     * Поле объекта-отправителя сообщений, работающий в отдельном потоке.
-     */
-    private Thread messageSender;
+    private final char HELLO_INIT = 11;
 
     /**
      * Поле, хранящее имя текущего клиента по умолчанию
@@ -55,109 +35,102 @@ public class ChatClient {
     private String name = "Anonymous";
 
     /**
+     * Объект для отправки сообщений с консоли. Выход из чата осуществляется командой /quit
+     */
+    private Runnable messageSender;
+
+    /**
+     * Объект для ожидания сообщений от сервера
+     */
+    private Runnable serverListener;
+
+
+    {
+        messageSender = () -> {
+            try (BufferedWriter out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
+                out.write(HELLO_INIT + name + "\n"); //представляемся серверу при подключении.
+                out.flush();
+                while (isAlive) {
+                    String message;
+                    message = reader.readLine();
+                    if (message.equals("/quit")) {
+                        out.write("Я ухожу! Всем пока!\n");
+                        out.flush();
+                        stopClient();
+                        break;
+                    } else {
+                        out.write(message + "\n");
+                        out.flush();
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("ERROR SENDING MESSAGE TO SERVER: " + e.getMessage());
+            }
+        };
+
+        serverListener = () -> {
+            String message;
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()))) {
+                while (isAlive) {
+                    message = in.readLine();
+                    System.out.println(message);
+                }
+            } catch (IOException e) {
+                System.out.println(e.getMessage());
+            }
+        };
+
+    }
+
+    private void startListenBroadcast(){
+        String message;
+        try (MulticastSocket multiSocket = new MulticastSocket(MULTICAST_PORT)) {
+            multiSocket.joinGroup(InetAddress.getByName(MULTICAST_ADDRESS));
+            while (isAlive) {
+                byte[] buf = new byte[256];
+                DatagramPacket packet = new DatagramPacket(buf, buf.length);
+                multiSocket.receive(packet);
+                message = new String(packet.getData());
+                System.out.println(message);
+            }
+        } catch (IOException e) {
+            System.err.println("ERROR RECEIVING BROADCAST MESSAGE: " + e.getMessage());
+        }
+    }
+
+
+    /**
      * Останов клиента
      * закрытие всех активных подключений
      */
     private void stopClient() {
-        System.out.println("You disconnected");
+        isAlive = false;
         try {
             clientSocket.close();
-            multiSocket.close();
-            out.close();
-        } catch (IOException ignored) {
+        } catch (IOException e) {
+            System.out.println("ERROR STOP CLIENT: " + e.getMessage());
         }
+        System.out.println("Disconnecting...");
     }
 
-    /**
-     * Запуск ожидания сообщений от сервера в параллельном потоке.
-     */
-    private void startListenServer() {
-        if (serverListener != null && serverListener.isAlive()) return;
-        serverListener = new Thread(() -> {
-            String message;
-            try {
-                while (true) {
-                    message = in.readLine();
-                    if (message.equals("ok")) continue;
-                    System.out.println(message);
-                }
-            } catch (IOException ignored) {
-            }
-            stopClient();
-        });
-        serverListener.start();
-    }//...startListenServer
 
-    /**
-     * Слушаем широковещательные сообщения в параллельном потоке (общие сообщения от сервера)
-     */
-    private void listenBroadcast() {
-        if (broadcastListener != null && broadcastListener.isAlive()) return;
-        broadcastListener = new Thread(() -> {
-            String message;
-            try {
-                while (true) {
-                    byte[] buf = new byte[256];
-                    DatagramPacket packet = new DatagramPacket(buf, buf.length);
-                    multiSocket.receive(packet);
-                    byte[] bytes = packet.getData();
-                    message = new String(bytes);
-                    System.out.println(message);
-                }
-            } catch (IOException ignored) {
-            }
-        });
-        broadcastListener.start();
-    }//....listenBroadcast
 
-    /**
-     * Инициация отправителя сообщений с консоли на сервер.
-     * при отправке /quit с консоли
-     */
-    private void initMessageSender() {
-        if (messageSender != null && messageSender.isAlive()) return;
-        try {
-            out.write((char) 11 + name + "\n"); //представляемся серверу при подключении.
-            out.flush();
-        } catch (IOException ignored) {
-        }
-        messageSender = new Thread(() -> {
-            while (true) {
-                String message;
-                try {
-                    message = reader.readLine();
-                    if (message.equals("/quit")) {
-                        out.write("Я ухожу! Всем пока!\n");
-                        break;
-                    } else {
-                        out.write(message + "\n");
-                    }
-                    out.flush();
-                } catch (IOException ignored) {
-                }
-            }
-            stopClient();
-        });
-        messageSender.start();
-    }//...initMessageSender
+    private void startListeners() {
+        new Thread(serverListener).start();
+        new Thread(messageSender).start();
+        new Thread(this::startListenBroadcast).start(); //для теста передал метод по ссылке.
+    }
 
     public ChatClient(int port, String name) {
         this.name = name;
+        isAlive = true;
         try {
-            multiAddress = InetAddress.getByName("230.0.0.0");
-            reader = new BufferedReader(new InputStreamReader(System.in));
-            clientSocket = new Socket("localhost", port);
-            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-            out = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()));
-            multiSocket = new MulticastSocket(multiPort);
-            multiSocket.joinGroup(multiAddress);
+            clientSocket = new Socket(InetAddress.getLocalHost(), port);
             System.out.println("Chat started...");
-            startListenServer();
-            initMessageSender();
-            listenBroadcast();
+            startListeners();
         } catch (IOException e) {
-            System.err.println(e);
+            System.err.println("ERROR INIT CHAT CLIENT: " + e.getMessage());
         }
-    }//...ChatClient
-
+    }
 }
